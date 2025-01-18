@@ -1,6 +1,7 @@
 
 from enum import Enum
 from typing import Dict, Optional
+import raylibpy as rl 
 
 # Enums for clarity
 class Edge(Enum):
@@ -21,24 +22,21 @@ class Dir(Enum):
 
 class Tile:
     def __init__(self, edges: Dict[Dir, Optional[Edge]], features: Dict[TileFeatures, bool], file_name: Optional[str] = None):
-        self.edges = edges  # Dictionary mapping Dir -> Edge
-        self.features = features  # Dictionary mapping TileFeatures -> bool
-        self.file_name = file_name  # Associated image file for the tile
+        if set(edges.keys()) != {Dir.N, Dir.E, Dir.S, Dir.W}:
+            raise ValueError("Edges dictionary must have all four directions: N, E, S, W.")
+        
+        self.edges = edges
+        self.features = features
+        self.file_name = file_name
+        self.texture = None  # Cached texture
+
+    def __repr__(self):
+        return f"Tile(edges={self.edges}, features={self.features}, file_name='{self.file_name}')"
 
     def rotate(self, direction: str = "right"):
-        """
-        Rotates the tile clockwise (right) or counterclockwise (left).
-
-        Parameters:
-            direction (str): 'right' for clockwise, 'left' for counterclockwise.
-
-        Returns:
-            None
-        """
         if direction not in {"right", "left"}:
             raise ValueError("Invalid direction. Use 'right' or 'left'.")
 
-        # Rotation logic: Shift directions
         if direction == "right":
             self.edges = {
                 Dir.N: self.edges[Dir.W],
@@ -54,8 +52,38 @@ class Tile:
                 Dir.W: self.edges[Dir.N],
             }
 
-    def __repr__(self):
-        return f"Tile(edges={self.edges}, features={self.features}, file_name='{self.file_name}')"
+    def load_image(self):
+        if self.file_name is None:
+            raise ValueError("No image file associated with this tile.")
+
+        try:
+            pre_path = "./images/tiles"  # Path to the tiles folder
+            print(f"Loading image: {pre_path}/{self.file_name}")  # Debug print
+            image = rl.load_image(f"{pre_path}/{self.file_name}")
+            self.texture = rl.load_texture_from_image(image)
+            rl.unload_image(image)
+            return self.texture
+        except Exception as e:
+            raise RuntimeError(f"Failed to load image '{self.file_name}': {e}")
+
+    def _draw(self, x: int, y: int):
+        if self.texture is None:
+            print("Texture not loaded, loading now...")  # Debug print
+            self.load_image()
+            
+        rl.draw_texture(self.texture, x, y, rl.WHITE)
+
+    def unload_texture(self):
+        if self.texture:
+            rl.unload_texture(self.texture)
+            self.texture = None
+
+    def follow_mouse(self):
+        x, y = map(int, rl.get_mouse_position())
+        self._draw(x, y)
+
+    def place_tile(self, x: int, y: int):
+        self._draw(x, y)
 
 ############################################
 TILE_1 = Tile(
@@ -320,9 +348,10 @@ TILE_COUNT_DICT = {
     TILE_4: 9,
     TILE_6: 3,
     TILE_7: 3,
-    TILE_15: 5, # 2 sheilds, 3 regular
-    TILE_16: 4, # 1 sheilds, 3 regular
-    TILE_17: 3, # 1 sheilds, 2 regular
-    TILE_18: 3, # 2 sheilds, 1 regular
-    TILE_19: 1, # 1 sheilds, 0 regular
+    TILE_15: 5,
+    TILE_16: 4,
+    TILE_17: 3,
+    TILE_18: 3,
+    TILE_19: 1,
+    TILE_5: 1  # Include TILE_5 in the dictionary
 }

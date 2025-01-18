@@ -1,5 +1,5 @@
 import random
-from utils.tiles import TILE_COUNT_DICT
+from utils.tiles import TILE_5, TILE_COUNT_DICT
 
 class Deck:
     def __init__(self):
@@ -13,7 +13,8 @@ class Deck:
 
     def shuffle_deck(self):
         random.shuffle(self.deck)
-        self.deck.insert(0, 'tile_5') # the starting tile.
+        # Ensure the starting tile is a Tile object
+        self.deck.insert(0, TILE_5)
 
     def draw_tile(self):
         return self.deck.pop(0)
@@ -28,15 +29,3 @@ class Deck:
         self.deck = []
         self.create_deck()
         self.shuffle_deck()
-
-class Tile:
-    def __init__(self, tile_type, file_name):
-        self.tile_type = tile_type
-        self.file_name = file_name
-
-    def get_tile_type(self):
-        return self.tile_type
-    
-    def get_file_name(self):
-        return self.file_name
-    
