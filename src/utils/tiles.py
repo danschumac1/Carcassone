@@ -1,6 +1,7 @@
 
 from enum import Enum
-from typing import Dict, Optional
+import os
+from typing import Dict, List, Optional
 import raylibpy as rl 
 
 # Enums for clarity
@@ -29,6 +30,11 @@ class Tile:
         self.features = features
         self.file_name = file_name
         self.texture = None  # Cached texture
+        self.width = None
+        self.height = None
+        self.placed = False
+        self.final_x = None
+        self.final_y = None
 
     def __repr__(self):
         return f"Tile(edges={self.edges}, features={self.features}, file_name='{self.file_name}')"
@@ -44,6 +50,9 @@ class Tile:
                 Dir.S: self.edges[Dir.E],
                 Dir.W: self.edges[Dir.S],
             }
+
+            degrees = 90 
+
         elif direction == "left":
             self.edges = {
                 Dir.N: self.edges[Dir.E],
@@ -51,26 +60,42 @@ class Tile:
                 Dir.S: self.edges[Dir.W],
                 Dir.W: self.edges[Dir.N],
             }
+            degrees = 270
+        temp_img = rl.load_image_from_texture(self.texture)  # Convert texture to image
+
+        rl.image_rotate(temp_img, degrees)  # Rotate the image
+
+        rl.unload_texture(self.texture)  # Unload the old texture
+        self.texture = rl.load_texture_from_image(temp_img)  # Reload texture from rotated image
+
+        rl.unload_image(temp_img)  # Free the image from memory
 
     def load_image(self):
         if self.file_name is None:
             raise ValueError("No image file associated with this tile.")
 
+        pre_path = "./images/tiles"  # Path to the tiles folder
+        full_path = os.path.join(pre_path, self.file_name)
+
+        if not os.path.exists(full_path):
+            raise FileNotFoundError(f"Image file not found: {full_path}")
+
         try:
-            pre_path = "./images/tiles"  # Path to the tiles folder
-            print(f"Loading image: {pre_path}/{self.file_name}")  # Debug print
-            image = rl.load_image(f"{pre_path}/{self.file_name}")
+            print(f"Loading image: {full_path}")  # Debug print
+            image = rl.load_image(full_path)
             self.texture = rl.load_texture_from_image(image)
+            self.width = self.texture.width
+            self.height = self.texture.height
             rl.unload_image(image)
-            return self.texture
         except Exception as e:
             raise RuntimeError(f"Failed to load image '{self.file_name}': {e}")
+
 
     def _draw(self, x: int, y: int):
         if self.texture is None:
             print("Texture not loaded, loading now...")  # Debug print
             self.load_image()
-            
+
         rl.draw_texture(self.texture, x, y, rl.WHITE)
 
     def unload_texture(self):
@@ -82,8 +107,17 @@ class Tile:
         x, y = map(int, rl.get_mouse_position())
         self._draw(x, y)
 
-    def place_tile(self, x: int, y: int):
+    def place_tile(self, x: int, y: int, placed_tiles: List["Tile"]):
         self._draw(x, y)
+        self.placed = True
+        self.final_x = x
+        self.final_y = y
+        placed_tiles.append(self)
+
+def draw_all_placed_tiles(tiles: List[Tile]):
+    for tile in tiles:
+        if tile.placed:
+            tile._draw(tile.final_x, tile.final_y)
 
 ############################################
 TILE_1 = Tile(
